@@ -1,0 +1,12 @@
+timestamp,scenario,order_type,success,planning_s,execution_s,viewpoints_total,viewpoints_visited,aruco_verified,optimized_dist_m,baseline_dist_m,improvement_pct,avg_speed_mps,collision_free
+20260301_095809,scenario1,tsp,True,0.02,81.72,10,10,10,60.5,125.93,52.0,0.74,True
+20260301_123735,scenario2,tsp,True,0.99,99.34,10,10,10,64.61,127.4,49.3,0.65,True
+20260301_113303,scenario3,tsp,True,0.09,128.85,20,20,20,82.66,175.8,53.0,0.64,True
+20260301_111739,scenario4,tsp,True,0.85,73.01,5,5,5,55.19,54.09,-2.0,0.76,True
+20260301_130738,scenario1,tsp,True,0.05,95.22,10,10,10,60.93,126.24,51.7,0.64,True
+20260301_160959,scenario1,baseline,True,0.05,176.83,10,10,9,60.93,126.24,51.7,0.71,True
+20260301_170748,scenario2,baseline,True,0.47,246.81,10,10,10,64.61,127.4,49.3,0.52,True
+20260301_171948,scenario3,baseline,True,0.13,266.85,20,20,20,83.1,175.8,52.7,0.66,True
+20260301_172539,scenario4,baseline,True,1.38,85.3,5,5,5,55.19,54.09,-2.0,0.63,True
+20260302_152713,scenario2,tsp,True,0.25,92.8,10,10,10,64.61,127.4,49.3,0.7,True
+20260302_153941,scenario4,tsp,True,0.44,81.7,5,5,5,55.19,54.09,-2.0,0.68,True

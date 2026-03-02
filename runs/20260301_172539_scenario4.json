@@ -1,0 +1,46 @@
+{
+  "summary": {
+    "timestamp": "20260301_172539",
+    "scenario": "scenario4",
+    "order_type": "baseline",
+    "success": true,
+    "planning_s": 1.38,
+    "execution_s": 85.3,
+    "viewpoints_total": 5,
+    "viewpoints_visited": 5,
+    "aruco_verified": 5,
+    "optimized_dist_m": 55.19,
+    "baseline_dist_m": 54.09,
+    "improvement_pct": -2.0,
+    "avg_speed_mps": 0.63,
+    "collision_free": true
+  },
+  "visit_order": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "visited": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "aruco_verified": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "aruco_detected_ids": [
+    24,
+    34,
+    44,
+    54,
+    64
+  ]
+}

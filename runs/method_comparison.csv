@@ -1,0 +1,5 @@
+scenario,baseline_dist_m,tsp_dist_m,tsp_time_ms,nn_dist_m,nn_time_ms
+scenario598,126.07,70.57,56.64,67.24,0.04
+scenario598,149.76,73.62,42.38,80.93,0.04
+scenario972,175.52,87.30,13.22,99.82,0.09
+scenario241,86.56,79.24,0.32,83.43,0.02

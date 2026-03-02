@@ -15,17 +15,21 @@ for namespace in ${drone_namespaces[@]}; do
   tmux_session_list+=("$namespace")
 done
 
-# Add drones from config/world.yaml file
-drone_namespaces=$(python3 ${script_dir}/utils/get_drones.py -p ${script_dir}/config_sim/config/world.yaml --sep ' ')
-for namespace in ${drone_namespaces[@]}; do
-  tmux_session_list+=("$namespace")
-done
+# Add drones from config/world.yaml file (if present)
+if [ -f "${script_dir}/config_sim/config/world.yaml" ]; then
+  drone_namespaces=$(python3 ${script_dir}/utils/get_drones.py -p ${script_dir}/config_sim/config/world.yaml --sep ' ' 2>/dev/null)
+  for namespace in ${drone_namespaces[@]}; do
+    tmux_session_list+=("$namespace")
+  done
+fi
 
-# Add drones from config/world_swarm.yaml file
-drone_namespaces=$(python3 ${script_dir}/utils/get_drones.py -p ${script_dir}/config_sim/config/world_swarm.yaml --sep ' ')
-for namespace in ${drone_namespaces[@]}; do
-  tmux_session_list+=("$namespace")
-done
+# Add drones from config/world_swarm.yaml file (if present)
+if [ -f "${script_dir}/config_sim/config/world_swarm.yaml" ]; then
+  drone_namespaces=$(python3 ${script_dir}/utils/get_drones.py -p ${script_dir}/config_sim/config/world_swarm.yaml --sep ' ' 2>/dev/null)
+  for namespace in ${drone_namespaces[@]}; do
+    tmux_session_list+=("$namespace")
+  done
+fi
 
 tmux_session_list+=("ground_station")
 

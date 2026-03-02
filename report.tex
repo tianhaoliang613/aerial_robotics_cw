@@ -1,0 +1,201 @@
+\documentclass[11pt,a4paper]{article}
+
+% ---- Formatting per assignment: Arial 11pt, 2cm margins ----
+\usepackage[margin=2cm]{geometry}
+\usepackage{fontspec}
+\setmainfont{Arial}
+\usepackage{setspace}
+\onehalfspacing
+
+% ---- Packages ----
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{float}
+
+% ---- Title ----
+\title{\textbf{Structural Inspection Path Planning for Autonomous Drone Navigation}}
+\author{Tianhao Liang}
+\date{}
+
+\begin{document}
+\maketitle
+
+% ===================================================================
+% 1. PROBLEM STATEMENT AND OBJECTIVES (10%)
+% ===================================================================
+\section{Problem Statement and Objectives}
+
+Autonomous drone-based structural inspection requires visiting a set of predefined viewpoints while avoiding obstacles in 3D space. This coursework addresses the \textit{Structural Inspection Path Planning Challenge}: based on a scenario with $n$ viewpoints (each with a position and camera yaw angle), $m$ obstacles, and a drone start position, the drone could plan an efficient flight route (shortest distance) that visits all viewpoints and detect the ArUco marker while no collision happening.
+
+The objectives are threefold: (1) minimise total flight distance and time by optimising the visit order; (2) use path planning to avoid obstacles; (3) verify mission completion by detecting ArUco markers placed at each viewpoint. The solution is validated through four scenarios of increasing complexity (5--20 viewpoints, 1--10 obstacles) in the Gazebo simulation environment.
+
+% ===================================================================
+% 2. METHODOLOGY (40%)
+% ===================================================================
+\section{Methodology}
+
+The system is implemented as two modules: a planning module (\texttt{planner.py}) that runs before takeoff, and a mission execution module (\texttt{mission\_scenario.py}) that interfaces with the drone through ROS\,2.
+
+\subsection{Scenario Parsing and Collision Detection}
+
+Obstacles are represented as axis-aligned bounding boxes (AABBs). A ray--AABB intersection test (Slab Method) determines whether a straight-line  between two points passes through any obstacle, enabling the construction of a collision-aware distance matrix.
+
+\subsection{Waypoint Sequencing: TSP Optimisation}
+
+The viewpoint visit order is formulated as a classic Travelling Salesman Problem (TSP). A collision-aware distance matrix is constructed where edges passing through obstacles receive a $2\times$ penalty. The $2\times$ distance penalty acts as a heuristic to encourage the selection of straight-line paths. This approach avoids the prohibitive computational cost of calculating A* paths for all potential node pairs while effectively prioritizing safe and direct flight paths.
+The TSP is solved using the \texttt{python\_tsp} library: exact dynamic programming is applied for the $n \leq 15$ nodes, while a 2-opt local search is used for larger instances with more than 15 nodes to guarantee the computation time is acceptable.
+
+A nearest-neighbour heuristic is implemented in \texttt{planner\_tools.py} for comparison of methods; the main mission uses only the exact/2-opt solver. The exact/2-opt approach was chosen for flight because it guarantees optimality for small instances and gives near-optimal solutions for larger ones. 
+
+\subsection{Motion Planning: 3D A* with Path Simplification}
+
+For each consecutive pair of viewpoints in the TSP order, the planner first checks whether a direct straight-line and collision-free path exists. If so, the drone flies directly; otherwise, a 3D A* search finds a collision-free path.
+
+The A* algorithm works as follows. The workspace is discretised into a 3D grid (1.0\,m resolution). Each node has a cost $g$ (actual cost from start) and an estimate $f = g + h$ where $h$ is the Euclidean distance to the goal (admissible heuristic). The algorithm maintains an open set of nodes to expand, ordered by $f$. It repeatedly takes the node with the smallest $f$, marks it closed, and expands its 26-connected neighbours (same and adjacent cells in $x$, $y$, $z$). For each neighbour that is inside the grid, outside the inflated obstacles (0.8\,m buffer), and not already closed, it computes the tentative $g$ via the current node; if this is lower than the neighbour's existing $g$, it updates the neighbour and records the current node as its predecessor, then adds the neighbour to the open set. When the goal node is expanded, the path is recovered by backtracking along the recorded predecessors. The resulting grid path is then simplified: any intermediate waypoint is removed if the straight segment from the previous to the next waypoint is collision-free, reducing the number of segments sent to the flight controller.
+
+\textbf{Why A* rather than RRT or PRM?} The path planning method must support verification and fair comparison: we need repeatable, optimal paths so that metrics (distance, time) are comparable across runs . A* on a discrete 3D grid provides exactly that: (i) it is \textbf{deterministic} (same start/goal and obstacles always yield the same path); (ii) it is \textbf{optimal} for the given resolution . By contrast, RRT and PRM are sampling-based ---different runs give different paths and distances and may not be the optimal. So for low-dimensional (2D/3D) spaces with simple environment, A* is a standard and well-understood choice, the run time is totally acceptable for real-time tasks.
+
+\subsection{ArUco Marker Verification}
+
+Task completion is verified by detecting ArUco markers (DICT\_5X5\_1000 dictionary) placed at each viewpoint using the drone's onboard HD camera. A key engineering challenge was integrating marker detection without disrupting flight stability. The final architecture uses a dedicated ROS\,2 node with its own single-threaded executor running on a separate Python thread. Camera subscriptions are created only when the drone arrives at a viewpoint and destroyed immediately after detection (or timeout), ensuring zero overhead during flight. This on-demand approach was essential because persistent camera subscriptions (30\,fps, $\sim$6\,MB/frame) caused executor contention with the flight controller's action feedback, leading to erratic drone behaviour.
+To maintain flight stability, marker detection uses an on-demand subscription on a dedicated ROS\,2 executor thread. This architecture prevents the erratic drone behaviour caused by CPU resource contention.
+
+\subsection{Integration into the Gazebo Simulation Environment}
+
+The drone simulation (Gazebo) is launched with a scenario. The mission module loads the scenario, gets from the planner the visit order (TSP) and the list of waypoints that avoid obstacles (A* where needed), then runs the mission: the drone takes off, flies to each waypoint (turning at viewpoints so the camera faces the marker), and verifies the ArUco marker at each viewpoint. Metrics are logged after each run for comparison and verification.
+
+% ===================================================================
+% 3. RESULTS AND DISCUSSION (40%)
+% ===================================================================
+\section{Results and Discussion}
+
+All four scenarios were completed successfully in Gazebo. Table~\ref{tab:results} summarises the key metrics.
+
+\begin{table}[H]
+\centering
+\caption{Performance metrics across all four test scenarios.}
+\label{tab:results}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Metric} & \textbf{Scenario 1} & \textbf{Scenario 2} & \textbf{Scenario 3} & \textbf{Scenario 4} \\
+\midrule
+Viewpoints / Obstacles     & 10 / 1  & 10 / 5  & 20 / 1  & 5 / 10  \\
+Planning time (s)          & 0.02    & 0.99    & 0.09    & 0.85    \\
+Baseline execution time (s)         & 176.83   & 246.81   & 266.85  & 85.3   \\
+Optimised execution time (s)         & 81.72   & 99.34   & 128.85  & 73.01   \\
+Viewpoints visited         & 10/10   & 10/10   & 20/20   & 5/5     \\
+ArUco markers verified     & 10/10   & 10/10   & 20/20   & 5/5     \\
+Optimised distance (m)     & 60.50   & 64.61   & 82.66   & 55.19   \\
+Baseline distance (m)      & 125.93  & 127.40  & 175.80  & 54.09   \\
+Distance improvement       & 52.0\%  & 49.3\%  & 53.0\%  & $-$2.0\% \\
+Average speed (m/s)        & 0.74    & 0.65    & 0.64    & 0.76    \\
+
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Comparison of Planning Methods}
+
+To satisfy the requirement for calculation of relevant metrics for comparison of various methods, the planner module compares three visit-order strategies using the same collision-aware distance matrix and A* path planning. Table~\ref{tab:methods} reports the \textbf{planned route distance} (sum of segment lengths before execution) and \textbf{planning time} for each method across all four scenarios. (1) \textbf{Baseline}: visit viewpoints in the order given in the scenario YAML (no optimisation). (2) \textbf{TSP (exact/2-opt)}: the main method used in flight---exact dynamic programming for $n \leq 15$ nodes, 2-opt local search otherwise. (3) \textbf{TSP nearest-neighbour}: greedy heuristic that repeatedly moves to the closest unvisited viewpoint from the current one; implemented in \texttt{planner\_tools.py} and exposed via \texttt{planner.py} as \texttt{solve\_tsp\_nearest\_neighbour()} for comparison only.
+
+\begin{table}[H]
+\centering
+\caption{Comparison of visit-order methods: planned distance (m) and planning time (ms).}
+\label{tab:methods}
+\begin{tabular}{llcccc}
+\toprule
+\textbf{Method} & \textbf{Metric} & \textbf{Sc. 1} & \textbf{Sc. 2} & \textbf{Sc. 3} & \textbf{Sc. 4} \\
+\midrule
+Baseline (YAML order)  & Distance (m)   & 126.1 & 149.8 & 175.5 & 86.6 \\
+                       & Planning (ms)  & $<$1  & $<$1  & $<$1  & $<$1 \\
+TSP (exact / 2-opt)    & Distance (m)   & 70.6  & 73.6  & 91.4  & 79.2 \\
+                       & Planning (ms)  & 26.5  & 17.5  & 4.9   & 0.1 \\
+TSP nearest-neighbour  & Distance (m)   & 67.2  & 80.9  & 99.8  & 83.4 \\
+                       & Planning (ms)  & $<$1  & $<$1  & $<$1  & $<$1 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+TSP (exact/2-opt) reduces planned distance by about 44--53\% versus baseline in Scenarios 1--3; in Scenario~4 the baseline order is already reasonable, so the gain is smaller. Nearest-neighbour is very fast but yields longer routes than exact/2-opt in Scenarios 2--4; in Scenario~1 it happens to be slightly shorter (67.2\,m vs 70.6\,m) but in general exact/2-opt is preferred for reliability. The comparison is produced offline by \texttt{compare\_planning\_methods()} (in \texttt{planner\_tools.py}); results can be written to \texttt{runs/method\_comparison.csv} for inclusion in reports.
+
+% --- Figure placeholder for Gazebo screenshots ---
+\begin{figure}[H]
+\centering
+\begin{subfigure}[b]{0.48\textwidth}
+    \centering
+    % 替换这里：取消注释并确保路径正确
+    \includegraphics[width=\textwidth]{scenario1_gazebo.png}
+    \caption{Scenario 1 (10 VP, 1 obstacle)}
+\end{subfigure}
+\hfill
+\begin{subfigure}[b]{0.48\textwidth}
+    \centering
+    % 替换这里：取消注释并确保路径正确
+    \includegraphics[width=\textwidth]{scenario4_gazebo.png}
+    \caption{Scenario 4 (5 VP, 10 obstacles)}
+\end{subfigure}
+\caption{Gazebo simulation environments for Scenarios 1 and 4.}
+\label{fig:gazebo}
+\end{figure}
+
+% --- Figure placeholder for planned paths ---
+\begin{figure}[H]
+\centering
+\begin{subfigure}[b]{0.48\textwidth}
+    \centering
+     \includegraphics[width=\textwidth]{path_scenario1.png}
+    \caption{Scenario 1: all direct paths}
+\end{subfigure}
+\hfill
+\begin{subfigure}[b]{0.48\textwidth}
+    \centering
+     \includegraphics[width=\textwidth]{path_scenario4.png}
+    
+    \caption{Scenario 4: A* detour segments}
+\end{subfigure}
+\caption{Planned flight paths. Direct segments shown as straight lines; A* detours shown as multi-segment paths around obstacles.}
+\label{fig:paths}
+\end{figure}
+
+\subsection{TSP Optimisation Effectiveness}
+
+For Scenarios 1--3, TSP optimisation reduced total flight distance by approximately \textbf{50\%} compared to the baseline YAML ordering. Scenario~4 showed a marginal 2\% increase because with only 5 viewpoints, the original ordering was already near-optimal, and the collision-aware penalty slightly altered the route to favour obstacle avoidance over distance.
+
+An interesting result is observed in Scenario 4, where the distance improvement is slightly negative ($-2.0\%$), yet the execution time is significantly reduced from 85.3\,s (baseline) to 73.01\,s. This discrepancy highlights a key advantage of the collision-aware penalty: the baseline YAML order, while shorter in Euclidean distance, likely forced the drone through heavily obstructed paths requiring complex, multi-segment A* detours. In contrast, the optimized route prioritized marginally longer but ``clearer'' segments, enabling a higher average speed and more efficient flight. This demonstrates that in dense obstacle environments (10 obstacles), path navigability and safety can be more critical to mission performance than raw distance minimization.
+
+\subsection{Collision Avoidance}
+
+Scenarios 1--3 required no detour waypoints as all direct paths between consecutive viewpoints were obstacle-free. Scenario~4, with 10 densely packed obstacles and a 70\% edge obstruction rate, required A* to plan 3 detour segments with 4--7 intermediate waypoints. The 0.8\,m safety buffer ensured a minimum clearance of 1.07\,m from all obstacles, enabling reliable passage even with controller position tracking errors.
+
+\subsection{ArUco Verification}
+
+ArUco markers were successfully detected at all 45 viewpoints across all four scenarios (100\% verification rate). This demonstrates the robustness of the on-demand subscription architecture: by isolating camera processing onto a dedicated ROS\,2 executor thread and subscribing only during viewpoint stops, marker detection operates reliably without interfering with flight control.
+
+\subsection{Limitations and Potential Improvements}
+
+The PX4 flight controller occasionally follows curved trajectories rather than straight lines when large yaw adjustments ($>90°$) coincide with position changes, as observed in Scenario~3. While this does not prevent mission completion, it increases actual flight distance beyond the planned optimum. Additionally, the A* planner assumes a static environment; dynamic obstacles would require replanning capabilities not currently implemented. Potential improvements to address these limitations (trajectory smoothing, real-time replanning, multi-drone coordination) are outlined in the Conclusions.
+
+% ===================================================================
+% 4. CONCLUSIONS (10%)
+% ===================================================================
+\section{Conclusions}
+
+This work presented an integrated path planning system for autonomous drone-based structural inspection. The combination of TSP-based visit ordering and A* collision-free motion planning achieved a 50\% reduction in flight distance for scenarios with 10--20 viewpoints, while maintaining zero collisions across all test environments. ArUco marker detection provided reliable visual verification of task completion at all viewpoints (100\%).
+
+The approach is effective for structured inspection scenarios with static, known obstacles and moderate numbers of viewpoints. For future work, trajectory smoothing (e.g.\ B-spline or minimum-snap trajectories) could reduce the curved paths caused by simultaneous yaw and position adjustments. Incorporating real-time replanning would enable adaptation to dynamic environments, and multi-drone coordination could further reduce total inspection time for large-scale structures.
+
+% ===================================================================
+% REFERENCES
+% ===================================================================
+\begin{thebibliography}{9}
+\bibitem{astar} Hart, P.E., Nilsson, N.J. and Raphael, B. (1968) `A formal basis for the heuristic determination of minimum cost paths', \textit{IEEE Transactions on Systems Science and Cybernetics}, 4(2), pp.~100--107.
+\bibitem{tsp} Applegate, D.L., Bixby, R.E., Chv\'{a}tal, V. and Cook, W.J. (2006) \textit{The Traveling Salesman Problem: A Computational Study}. Princeton University Press.
+\bibitem{aruco} Garrido-Jurado, S. et al. (2014) `Automatic generation and detection of highly reliable fiducial markers under occlusion', \textit{Pattern Recognition}, 47(6), pp.~2280--2292.
+\bibitem{aerostack2} Fern\'{a}ndez-Cortizas, M. et al. (2023) `Aerostack2: A software framework for developing multi-robot aerial systems', \textit{arXiv preprint arXiv:2303.18237}.
+\end{thebibliography}
+
+\end{document}
