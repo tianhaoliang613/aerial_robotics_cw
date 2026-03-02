@@ -23,11 +23,11 @@
 
 1. *"Hi. This video shows our path-planning solution for a drone inspection task in Gazebo."*
 2. *"The drone must visit several viewpoints, avoid obstacles, and at each viewpoint we use the camera to detect an ArUco marker to confirm the visit."*
-3. *"We use two ideas: waypoint optimisation with TSP to shorten the path, and collision-free motion planning with detours around obstacles."*
+3. *"We use two ideas, which are implemented in planner.py: the first is waypoint optimisation with TSP to give the best visit order, and the second is the A\* algorithm to find a collision-free path between consecutive waypoints. The full path is then sent to the node that controls the flight."*
 4. *"The flight runs in Gazebo. Let me show you one full run."*
 
 **中文大意：**  
-大家好。这个视频展示我们在 Gazebo 里做的无人机巡检路径规划。无人机要访问多个观测点、避开障碍物，并在每个观测点用相机检测 ArUco 标记来确认到达。我们用了两点：用 TSP 做航点优化缩短路径，以及用绕行做碰撞自由的运动规划。接下来给大家看一次完整飞行。
+大家好。这个视频展示我们在 Gazebo 里做的无人机巡检路径规划。无人机要访问多个观测点、避开障碍物，并在每个观测点用相机检测 ArUco 标记来确认到达。我们在 planner.py 里实现了两点：一是用 TSP 做航点优化得到最佳访问顺序，二是用 A* 在相邻航点间规划碰撞自由路径，最后把整条路径发给控制飞行的节点。接下来给大家看一次完整飞行。
 
 ---
 
@@ -54,9 +54,12 @@
 
 ### 步骤 2.3 – 飞行路径（重点：航点优化 + 避障）
 
-- **画面：** 无人机沿路径飞，**当它明显绕开某个障碍物时**，指一下。
+- **画面：** 无人机沿路径飞，**当它明显绕开某个障碍物时**，或**在绕行点短暂悬停时**，指一下。
 - **说一句（英文）：** *"It follows the optimised waypoints. Here you see it goes around the obstacle — that is our collision-free planning."*  
   **中文：** 它按优化后的航点飞；这里可以看到它绕开障碍物，这就是我们的碰撞自由规划。
+- **（可选）若飞机在某个点停顿/悬停：**  
+  **英文：** *"It pauses here because this is a detour waypoint. The drone cannot fly in a straight line to the next viewpoint because of the obstacle, so the algorithm planned this waypoint in between."*  
+  **中文：** 这里停顿了一下，是因为这是一个绕行航点；飞机没法直线飞向下一个 viewpoint（被障碍物挡住了），所以我们在中间规划了这个 waypoint。
 
 ### 步骤 2.4 – 观测点与 ArUco（可选，时间紧就一句话带过）
 
