@@ -4,7 +4,31 @@ This repository contains the first coursework for the UCL Aerial Robotics Module
 
 ![scenario1](docs/images/scenario1.png)
 
-This challenge has been developed on top of the aerostack2 platform 
+This challenge has been developed on top of the aerostack2 platform.
+
+---
+
+## 从本仓库克隆后如何运行 / Run after cloning this repo
+
+**不能只克隆本仓库就仿真。** 本仓库只是 ROS2 工作空间里的一个包，仿真需要完整工作空间和 Aerostack2 等依赖。
+
+**You cannot run the simulation by cloning only this repo.** This repo is one package inside a ROS2 workspace; you need the full workspace and Aerostack2 dependencies.
+
+**步骤 Steps:**
+
+1. 创建工作空间并拉取依赖（见下方 [Installation](#installation)），克隆 **aerostack2**、**mocap4r2_msgs**、**as2_platform_crazyflie**。
+2. 把**本仓库**克隆到 `mission_planning_ws/src/` 下，文件夹命名为 `challenge_mission_planning`：
+   ```bash
+   cd mission_planning_ws/src
+   git clone https://github.com/tianhaoliang613/aerial_robotics_cw.git challenge_mission_planning
+   ```
+3. 在工作空间根目录执行 `colcon build`，然后 `source install/setup.bash`。
+4. 按 [Execution](#execution) 先启动 `./launch_as2.bash` 和 `./launch_ground_station.bash`，再在包目录下运行：
+   ```bash
+   python3 mission_scenario.py scenarios/scenario1.yaml
+   ```
+
+---
 
 ## Challenge 
 
